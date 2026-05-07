@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON RUNNER | Endless Adventure</title>
+    <style>
+        :root {
+            /* Default "Neon" Theme */
+            --bg-color: #050505;
+            --floor-color: #111;
+            --accent-color: #00f2ff;
+            --accent-glow: rgba(0, 242, 255, 0.5);
+            --danger-color: #ff0055;
+            --danger-glow: rgba(255, 0, 85, 0.5);
+            --coin-color: #ffd700;
+            --coin-glow: rgba(255, 215, 0, 0.6);
+            --text-primary: #ffffff;
+            --ui-bg: rgba(20, 20, 20, 0.8);
+            --transition-speed: 0.8s;
+        }
+
+        /* Mood Variations */
+        [data-mood="angry"] {
+            --accent-color: #ff3300;
+            --accent-glow: rgba(255, 51, 0, 0.6);
+            --floor-color: #200;
+        }
+        [data-mood="happy"] {
+            --accent-color: #ccff00;
+            --accent-glow: rgba(204, 255, 0, 0.6);
+            --floor-color: #121;
+        }
+        [data-mood="sad"] {
+            --accent-color: #0066ff;
+            --accent-glow: rgba(0, 102, 255, 0.6);
+            --floor-color: #001;
+        }
+        [data-mood="calm"] {
+            --accent-color: #00ffaa;
+            --accent-glow: rgba(0, 255, 170, 0.6);
+            --floor-color: #011;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--accent-color);
+            transition: border-color var(--transition-speed);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #000, var(--floor-color));
+        }
+
+        /* UI Elements */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
+
+        .stat-box {
+            background: var(--ui-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-glow);
+            transition: all var(--transition-speed);
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Mood Input */
+        #mood-section {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        #mood-input {
+            background: var(--ui-bg);
+            border: 1px solid var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            outline: none;
+            width: 250px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        #mood-input:focus {
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        #mood-status {
+            font-size: 14px;
+            font-style: italic;
+            opacity: 0.8;
+            height: 20px;
+        }
+
+        /* Game Over Overlay */
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        #game-over h2 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: var(--danger-color);
+            text-shadow: 0 0 20px var(--danger-glow);
+        }
+
+        .restart-btn {
+            background: var(--accent-color);
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        /* Instructions */
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            opacity: 0.6;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body data-mood="neon">
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-label">Score</div>
+                    <div id="score-val" class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Coins</div>
+                    <div id="coins-val" class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Best</div>
+                    <div id="best-val" class="stat-value">0</div>
+                </div>
+            </div>
+
+            <div class="instructions">
+                SPACE / UP to Jump &nbsp;•&nbsp; DOWN to Slide
+            </div>
+        </div>
+
+        <div id="game-over">
+            <h2>CRITICAL ERROR</h2>
+            <p>Your systems have failed.</p>
+            <div style="font-size: 24px; margin-top: 20px;">Final Score: <span id="final-score">0</span></div>
+            <button class="restart-btn" onclick="game.reset()">INITIALIZE REBOOT</button>
+        </div>
+    </div>
+
+    <div id="mood-section">
+        <input type="text" id="mood-input" placeholder="How are you feeling?" autocomplete="off">
+        <div id="mood-status">Current State: Synchronized</div>
+    </div>
+
+    <script>
+        /**
+         * NEON RUNNER - CORE ENGINE
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score-val');
+        const coinsEl = document.getElementById('coins-val');
+        const bestEl = document.getElementById('best-val');
+        const gameOverEl = document.getElementById('game-over');
+        const finalScoreEl = document.getElementById('final-score');
+        const moodInput = document.getElementById('mood-input');
+        const moodStatus = document.getElementById('mood-status');
+
+        // Configuration
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 450;
+        const GROUND_Y = 360;
+        const INITIAL_SPEED = 5;
+        const SPEED_INCREMENT = 0.0005;
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -15;
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // Game State
+        let game = {
+            score: 0,
+            coins: 0,
+            highScore: localStorage.getItem('neonRunner_best') || 0,
+            speed: INITIAL_SPEED,
+            running: true,
+            frame: 0,
+            
+            init() {
+                bestEl.innerText = this.highScore;
+                this.reset();
+                this.loop();
+            },
+
+            reset() {
+                this.score = 0;
+                this.coins = 0;
+                this.speed = INITIAL_SPEED;
+                this.running = true;
+                this.frame = 0;
+                player.reset();
+                obstacles = [];
+                coins = [];
+                particles = [];
+                gameOverEl.style.display = 'none';
+                scoreEl.innerText = '0';
+                coinsEl.innerText = '0';
+            },
+
+            over() {
+                this.running = false;
+                if (this.score > this.highScore) {
+                    this.highScore = Math.floor(this.score);
+                    localStorage.setItem('neonRunner_best', this.highScore);
+                    bestEl.innerText = this.highScore;
+                }
+                finalScoreEl.innerText = Math.floor(this.score);
+                gameOverEl.style.display = 'flex';
+            },
+
+            update() {
+                if (!this.running) return;
+                
+                this.frame++;
+                this.score += this.speed * 0.1;
+                this.speed += SPEED_INCREMENT;
+                scoreEl.innerText = Math.floor(this.score);
+
+                player.update();
+                updateObstacles();
+                updateCoins();
+                updateParticles();
+
+                // Spawning
+                if (this.frame % 100 === 0) spawnObstacle();
+                if (this.frame % 60 === 0) spawnCoin();
+            },
+
+            draw() {
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                drawBackground();
+                drawFloor();
+                
+                particles.forEach(p => p.draw());
+                coins.forEach(c => c.draw());
+                obstacles.forEach(o => o.draw());
+                player.draw();
+            },
+
+            loop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.loop());
+            }
+        };
+
+        // --- ENTITIES ---
+
+        const player = {
+            x: 100,
+            y: GROUND_Y,
+            w: 40,
+            h: 60,
+            vy: 0,
+            isJumping: false,
+            isSliding: false,
+            slideTimer: 0,
+
+            reset() {
+                this.y = GROUND_Y - this.h;
+                this.vy = 0;
+                this.isJumping = false;
+                this.isSliding = false;
+            },
+
+            jump() {
+                if (!this.isJumping && !this.isSliding) {
+                    this.vy = JUMP_FORCE;
+                    this.isJumping = true;
+                }
+            },
+
+            slide() {
+                if (!this.isJumping && !this.isSliding) {
+                    this.isSliding = true;
+                    this.slideTimer = 40; // frames
+                }
+            },
+
+            update() {
+                // Gravity & Jump
+                this.vy += GRAVITY;
+                this.y += this.vy;
+
+                if (this.y > GROUND_Y - (this.isSliding ? this.h/2 : this.h)) {
+                    this.y = GROUND_Y - (this.isSliding ? this.h/2 : this.h);
+                    this.vy = 0;
+                    this.isJumping = false;
+                }
+
+                // Sliding
+                if (this.isSliding) {
+                    this.slideTimer--;
+                    if (this.slideTimer <= 0) {
+                        this.isSliding = false;
+                    }
+                }
+
+                // Dust particles
+                if (!this.isJumping && game.frame % 5 === 0) {
+                    createDust(this.x + 10, GROUND_Y);
+                }
+            },
+
+            draw() {
+                ctx.save();
+                
+                const drawH = this.isSliding ? this.h / 2 : this.h;
+                const drawY = this.y;
+                
+                // Outer Glow
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = getComputedStyle(document.body).getPropertyValue('--accent-color');
+                
+                // Body
+                ctx.fillStyle = ctx.shadowColor;
+                ctx.beginPath();
+                ctx.roundRect(this.x, drawY, this.w, drawH, 5);
+                ctx.fill();
+
+                // Inner detail
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x + 5, drawY + 5, this.w - 10, drawH - 10);
+
+                ctx.restore();
+            },
+
+            getHitbox() {
+                return {
+                    x: this.x + 5,
+                    y: this.y + 5,
+                    w: this.w - 10,
+                    h: (this.isSliding ? this.h/2 : this.h) - 10
+                };
+            }
+        };
+
+        // --- OBSTACLES & COINS ---
+
+        let obstacles = [];
+        let coins = [];
+
+        class Obstacle {
+            constructor(type) {
+                this.type = type; // 'spike' or 'hazard'
+                this.x = CANVAS_WIDTH;
+                this.w = 40;
+                this.h = type === 'spike' ? 40 : 50;
+                this.y = type === 'spike' ? GROUND_Y - this.h : GROUND_Y - 120;
+            }
+
+            update() {
+                this.x -= game.speed;
+            }
+
+            draw() {
+                ctx.save();
+                const color = getComputedStyle(document.body).getPropertyValue('--danger-color');
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+                ctx.fillStyle = color;
+
+                if (this.type === 'spike') {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, GROUND_Y);
+                    ctx.lineTo(this.x + this.w/2, GROUND_Y - this.h);
+                    ctx.lineTo(this.x + this.w, GROUND_Y);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.roundRect(this.x, this.y, this.w, this.h, 5);
+                    ctx.fill();
+                    // Hazard detail
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fillRect(this.x + 5, this.y + 5, this.w - 10, this.h - 10);
+                }
+                ctx.restore();
+            }
+
+            getHitbox() {
+                return { x: this.x + 5, y: this.y + 5, w: this.w - 10, h: this.h - 10 };
+            }
+        }
+
+        class Coin {
+            constructor() {
+                this.x = CANVAS_WIDTH;
+                this.r = 10;
+                this.y = GROUND_Y - 50 - Math.random() * 100;
+                this.collected = false;
+                this.pulse = 0;
+            }
+
+            update() {
+                this.x -= game.speed;
+                this.pulse += 0.1;
+            }
+
+            draw() {
+                ctx.save();
+                const color = getComputedStyle(document.body).getPropertyValue('--coin-color');
+                const glow = getComputedStyle(document.body).getPropertyValue('--coin-glow');
+                
+                ctx.shadowBlur = 15 + Math.sin(this.pulse) * 5;
+                ctx.shadowColor = color;
+                ctx.fillStyle = color;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Shine
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x - 3, this.y - 3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        function spawnObstacle() {
+            const type = Math.random() > 0.5 ? 'spike' : 'hazard';
+            obstacles.push(new Obstacle(type));
+        }
+
+        function spawnCoin() {
+            coins.push(new Coin());
+        }
+
+        function updateObstacles() {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].update();
+                
+                // Collision
+                if (checkCollision(player.getHitbox(), obstacles[i].getHitbox())) {
+                    game.over();
+                }
+
+                if (obstacles[i].x < -100) obstacles.splice(i, 1);
+            }
+        }
+
+        function updateCoins() {
+            for (let i = coins.length - 1; i >= 0; i--) {
+                coins[i].update();
+                
+                // Collision
+                const dx = player.x + player.w/2 - coins[i].x;
+                const dy = player.y + (player.isSliding ? player.h/4 : player.h/2) - coins[i].y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < 30) {
+                    game.coins++;
+                    game.score += 50;
+                    coinsEl.innerText = game.coins;
+                    createCoinBurst(coins[i].x, coins[i].y);
+                    coins.splice(i, 1);
+                    continue;
+                }
+
+                if (coins[i].x < -100) coins.splice(i, 1);
+            }
+        }
+
+        function checkCollision(r1, r2) {
+            return r1.x < r2.x + r2.w &&
+                   r1.x + r1.w > r2.x &&
+                   r1.y < r2.y + r2.h &&
+                   r1.y + r1.h > r2.y;
+        }
+
+        // --- PARTICLES ---
+
+        let particles = [];
+        class Particle {
+            constructor(x, y, vx, vy, color, size, life) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.size = size; this.life = life;
+                this.maxLife = life;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+            }
+            draw() {
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function createCoinBurst(x, y) {
+            const color = getComputedStyle(document.body).getPropertyValue('--coin-color');
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(
+                    x, y,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    color,
+                    Math.random() * 4 + 2,
+                    20 + Math.random() * 20
+                ));
+            }
+        }
+
+        function createDust(x, y) {
+            const color = 'rgba(255, 255, 255, 0.3)';
+            particles.push(new Particle(
+                x, y,
+                -2 - Math.random() * 2,
+                -Math.random() * 2,
+                color,
+                Math.random() * 3 + 1,
+                15
+            ));
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        // --- BACKGROUND & FLOOR ---
+
+        function drawBackground() {
+            // Gradient sky
+            const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+            grad.addColorStop(0, '#000');
+            grad.addColorStop(1, getComputedStyle(document.body).getPropertyValue('--floor-color'));
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, GROUND_Y);
+        }
+
+        function drawFloor() {
+            const accent = getComputedStyle(document.body).getPropertyValue('--accent-color');
+            
+            // Floor base
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+
+            // Perspective Grid
+            ctx.strokeStyle = accent;
+            ctx.globalAlpha = 0.2;
+            ctx.lineWidth = 1;
+
+            // Horizontal lines (perspective)
+            for (let i = 0; i < 10; i++) {
+                const y = GROUND_Y + Math.pow(i, 1.8) * 4;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Vanishing lines
+            const vpX = CANVAS_WIDTH / 2;
+            const vpY = GROUND_Y - 50;
+            const offset = (game.frame * game.speed) % 100;
+
+            for (let i = -10; i <= 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(vpX + i * 100 - offset, CANVAS_HEIGHT);
+                ctx.lineTo(vpX, vpY);
+                ctx.stroke();
+            }
+
+            // Top edge glow
+            ctx.globalAlpha = 0.8;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = accent;
+            ctx.beginPath();
+            ctx.moveTo(0, GROUND_Y);
+            ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+            ctx.stroke();
+
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // --- MOOD ENGINE ---
+
+        moodInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            let detected = 'neon';
+            let status = 'Synchronized';
+
+            if (val.includes('angry') || val.includes('mad') || val.includes('rage')) {
+                detected = 'angry';
+                status = 'ADRENALINE OVERLOAD DETECTED';
+            } else if (val.includes('happy') || val.includes('good') || val.includes('joy')) {
+                detected = 'happy';
+                status = 'OPTIMISM LEVELS PEAKING';
+            } else if (val.includes('sad') || val.includes('blue') || val.includes('down')) {
+                detected = 'sad';
+                status = 'MELANCHOLY PROTOCOL ACTIVE';
+            } else if (val.includes('calm') || val.includes('relax') || val.includes('peace')) {
+                detected = 'calm';
+                status = 'ZEN MODE ENGAGED';
+            } else if (val.length > 0) {
+                status = 'Analyzing neural patterns...';
+            }
+
+            document.body.setAttribute('data-mood', detected);
+            moodStatus.innerText = `Current State: ${status}`;
+        });
+
+        // --- INPUTS ---
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                player.jump();
+                e.preventDefault();
+            }
+            if (e.code === 'ArrowDown') {
+                player.slide();
+                e.preventDefault();
+            }
+        });
+
+        // Touch support for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            const touchY = e.touches[0].clientY;
+            if (touchY < window.innerHeight / 2) player.jump();
+            else player.slide();
+            e.preventDefault();
+        });
+
+        // Start
+        game.init();
+
+    </script>
+</body>
+</html>
